@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>dcmim // GitHub Portfolio</title>
+  <meta name="description" content="Developer portfolio and repository explorer for github.com/dcmim." />
+  <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'JetBrains Mono', monospace;
+    }
+  </style>
+</head>
+<body class="bg-white text-black min-h-screen flex flex-col selection:bg-emerald-200 selection:text-black">
+
+  <!-- Dynamic Router Container -->
+  <div id="router-container" class="flex-1 flex flex-col">
+    <!-- Default Portfolio View -->
+    <div id="main-view" class="flex-1 flex flex-col">
+      <!-- Header -->
+      <header class="border-b border-emerald-200/80 bg-emerald-50/60 px-4 sm:px-6 py-4 sticky top-0 z-40 backdrop-blur-md">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <span class="w-3 h-3 bg-emerald-500 rounded-full"></span>
+            <span class="text-xs sm:text-sm font-bold tracking-tight">dcmim.dev</span>
+          </div>
+          <div class="flex items-center gap-3 text-xs font-medium">
+            <a href="https://github.com/dcmim" target="_blank" class="px-3.5 py-2 bg-white border border-emerald-200 hover:bg-emerald-50 rounded-xl transition-colors shadow-xs">GitHub</a>
+            <button onclick="scrollToTerminal()" class="px-3.5 py-2 bg-emerald-600 text-white hover:bg-emerald-500 rounded-xl transition-colors shadow-xs">AI Concierge</button>
+          </div>
+        </div>
+      </header>
+
+      <!-- Main Container -->
+      <main class="max-w-4xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-12 flex-1 flex flex-col gap-10">
+        
+        <!-- Profile Card -->
+        <section class="border border-emerald-200/80 bg-emerald-50/40 p-6 sm:p-8 rounded-3xl flex flex-col sm:flex-row gap-6 items-center sm:items-start text-center sm:text-left shadow-sm">
+          <img id="user-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop" alt="avatar" class="w-24 h-24 rounded-2xl object-cover bg-white p-1.5 shadow-sm shrink-0 border border-emerald-200">
+          <div class="flex flex-col gap-2.5 flex-1">
+            <h1 id="user-name" class="text-xl sm:text-2xl font-bold text-black tracking-tight">dcmim</h1>
+            <p id="user-bio" class="text-xs sm:text-sm text-slate-700 leading-relaxed">Loading bio...</p>
+            <div class="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-xs text-emerald-900 pt-1 font-medium">
+              <span class="px-3 py-1 bg-emerald-100/70 rounded-full">Repos: <strong id="stat-repos" class="text-black">0</strong></span>
+              <span class="px-3 py-1 bg-emerald-100/70 rounded-full">Followers: <strong id="stat-followers" class="text-black">0</strong></span>
+            </div>
+            <p class="text-[11px] text-emerald-800 pt-2 font-mono">Tip: Type <code class="bg-emerald-100 px-1.5 py-0.5 rounded text-black font-bold">/#project-name</code> in the URL to inspect or launch projects.</p>
+          </div>
+        </section>
+
+        <!-- Repositories Section -->
+        <section class="flex flex-col gap-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-200/80 pb-3">
+            <h2 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-black">Repositories</h2>
+            <div class="flex items-center gap-2 text-xs">
+              <input 
+                type="text" 
+                id="search-input" 
+                placeholder="Search repos..." 
+                oninput="filterRepos()"
+                class="w-full sm:w-56 px-4 py-2.5 bg-emerald-50/30 border border-emerald-200 rounded-2xl text-black text-xs focus:outline-none focus:border-emerald-500 shadow-xs"
+              >
+            </div>
+          </div>
+
+          <!-- Repo Grid -->
+          <div id="repo-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            <div class="border border-emerald-200/80 p-8 text-xs text-slate-500 bg-emerald-50/20 rounded-3xl col-span-full text-center">
+              Loading repositories...
+            </div>
+          </div>
+        </section>
+
+        <!-- AI Terminal Section -->
+        <section id="terminal-section" class="border border-emerald-200/80 bg-emerald-50/20 p-6 sm:p-8 rounded-3xl flex flex-col gap-4 shadow-sm">
+          <div class="flex items-center justify-between border-b border-emerald-200 pb-3 text-xs font-bold text-black">
+            <span>AI Concierge</span>
+            <span class="text-emerald-700 text-[10px] bg-emerald-100 px-2 py-0.5 rounded-full">Gemini 3.8</span>
+          </div>
+          <div id="terminal-output" class="h-40 overflow-y-auto space-y-2.5 text-xs text-slate-800 pr-2">
+            <div>[System]: Ask any question about dcmim's projects.</div>
+          </div>
+          <form onsubmit="handleTerminalSubmit(event)" class="flex gap-2.5 pt-2 border-t border-emerald-200">
+            <input 
+              type="text" 
+              id="terminal-input" 
+              placeholder="Ask a question..." 
+              class="flex-1 bg-white border border-emerald-200 rounded-2xl text-black text-xs px-4 py-3 focus:outline-none focus:border-emerald-500 shadow-xs"
+            >
+            <button type="submit" class="px-5 py-3 bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 rounded-2xl transition-colors shadow-xs shrink-0">
+              Send
+            </button>
+          </form>
+        </section>
+
+      </main>
+
+      <!-- Footer -->
+      <footer class="border-t border-emerald-200/80 bg-emerald-50/40 px-6 py-6 mt-12 text-center text-xs text-slate-600">
+        <p>© dcmim.dev · Soft Minimalist Edition</p>
+      </footer>
+    </div>
+
+    <!-- Project Inspector / Webpage View (Loaded via Hash Route /#[project-name]) -->
+    <div id="project-view" class="hidden flex-1 flex flex-col"></div>
+  </div>
+
+  <!-- Soft Repo Modal -->
+  <div id="repo-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs hidden">
+    <div class="border border-emerald-200 bg-white max-w-lg w-full p-6 sm:p-8 rounded-3xl flex flex-col gap-5 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-emerald-200 pb-3">
+        <h3 id="modal-title" class="text-xs sm:text-sm font-bold text-black truncate">Repo</h3>
+        <button onclick="closeModal()" class="text-xs font-bold text-emerald-800 hover:text-black p-1.5 bg-emerald-50 rounded-xl">[X]</button>
+      </div>
+      <p id="modal-desc" class="text-xs text-slate-700 leading-relaxed"></p>
+      <div class="border border-emerald-200 p-4 rounded-2xl bg-emerald-50/50 text-xs text-slate-900" id="modal-ai">
+        Analyzing with Gemini AI...
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <a id="modal-link" href="#" target="_blank" class="px-5 py-2.5 bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 rounded-2xl transition-colors shadow-xs">
+          View on GitHub
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let allRepos = [];
+
+    async function init() {
+      window.addEventListener('hashchange', handleRouter);
+      
+      try {
+        const [userRes, reposRes] = await Promise.all([
+          fetch('/api/github/user'),
+          fetch('/api/github/repos')
+        ]);
+        const userData = await userRes.json();
+        allRepos = await reposRes.json();
+
+        document.getElementById('user-name').innerText = userData.name || userData.login;
+        document.getElementById('user-bio').innerText = userData.bio || 'No bio provided.';
+        document.getElementById('user-avatar').src = userData.avatar_url;
+        document.getElementById('stat-repos').innerText = userData.public_repos ?? allRepos.length;
+        document.getElementById('stat-followers').innerText = userData.followers || 0;
+
+        renderRepos(allRepos);
+      } catch (err) {
+        renderRepos([]);
+      }
+
+      handleRouter();
+    }
+
+    async function handleRouter() {
+      const hash = window.location.hash.slice(1); // e.g. /project-name or project-name
+      const mainView = document.getElementById('main-view');
+      const projectView = document.getElementById('project-view');
+
+      if (!hash) {
+        mainView.classList.remove('hidden');
+        projectView.classList.add('hidden');
+        projectView.innerHTML = '';
+        return;
+      }
+
+      const projectName = hash.startsWith('/') ? hash.slice(1) : hash;
+      
+      mainView.classList.add('hidden');
+      projectView.classList.remove('hidden');
+      projectView.innerHTML = `
+        <div class="flex-1 flex items-center justify-center p-8 bg-emerald-50/20 text-xs text-slate-600">
+          Loading project /${projectName}...
+        </div>
+      `;
+
+      try {
+        const res = await fetch(`/api/github/repo-files/${projectName}`);
+        if (!res.ok) {
+          const errData = await res.json();
+          projectView.innerHTML = `
+            <div class="flex-1 flex flex-col items-center justify-center p-8 text-center gap-4">
+              <div class="text-lg font-bold text-black">${errData.error || projectName + ' doesn\'t exist in my project'}</div>
+              <a href="#" onclick="window.location.hash=''; return false;" class="px-5 py-2.5 bg-emerald-600 text-white rounded-2xl text-xs font-bold hover:bg-emerald-500 transition-colors">← Back to Portfolio</a>
+            </div>
+          `;
+          return;
+        }
+
+        const data = await res.json();
+
+        // RULE 2: If detected HTML, js, CSS (web project) -> show webpage itself NO UI no file list!
+        if (data.isWebProject) {
+          const htmlFile = data.files.find(f => f.name.endsWith('.html')) || data.files[0];
+          const content = htmlFile ? htmlFile.content : '<h1>No HTML content found</h1>';
+          
+          projectView.innerHTML = `
+            <iframe srcdoc="${encodeURIComponent(content)}" class="w-full flex-1 border-none min-h-screen"></iframe>
+          `;
+          return;
+        }
+
+        // RULE 1: If non-HTML project -> shows File List where you can see code, download button, folders, and files
+        renderFileListView(data);
+
+      } catch (err) {
+        projectView.innerHTML = `
+          <div class="flex-1 flex flex-col items-center justify-center p-8 text-center gap-4">
+            <div class="text-lg font-bold text-black">${projectName} doesn't exist in my project</div>
+            <a href="#" onclick="window.location.hash=''; return false;" class="px-5 py-2.5 bg-emerald-600 text-white rounded-2xl text-xs font-bold hover:bg-emerald-500 transition-colors">← Back to Portfolio</a>
+          </div>
+        `;
+      }
+    }
+
+    let currentRepoData = null;
+    let selectedFileContent = '';
+
+    function renderFileListView(repoData) {
+      currentRepoData = repoData;
+      const firstFile = repoData.files.find(f => f.type === 'file') || { name: 'README.md', content: repoData.description };
+      selectedFileContent = firstFile.content;
+
+      const projectView = document.getElementById('project-view');
+      projectView.innerHTML = `
+        <header class="border-b border-emerald-200/80 bg-emerald-50/60 px-4 sm:px-6 py-4 flex items-center justify-between">
+          <div class="flex items-center gap-3">
+            <a href="#" onclick="window.location.hash=''; return false;" class="text-xs font-bold text-emerald-800 hover:underline">← Portfolio</a>
+            <span class="text-slate-300">/</span>
+            <span class="text-xs font-bold text-black">${repoData.name}</span>
+          </div>
+          <div class="flex items-center gap-3">
+            <button onclick="downloadProjectZip()" class="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-bold hover:bg-emerald-500 transition-colors shadow-xs">
+              Download Project
+            </button>
+            <a href="${repoData.htmlUrl}" target="_blank" class="px-4 py-2 bg-white border border-emerald-200 rounded-xl text-xs font-bold hover:bg-emerald-50 transition-colors">
+              GitHub
+            </a>
+          </div>
+        </header>
+
+        <div class="flex-1 grid grid-cols-1 md:grid-cols-12 bg-white">
+          <!-- File Tree Sidebar -->
+          <div class="md:col-span-4 border-r border-emerald-200/80 bg-emerald-50/30 p-4 sm:p-6 flex flex-col gap-3">
+            <div class="text-xs font-bold uppercase tracking-wider text-black pb-2 border-b border-emerald-200">Files & Folders</div>
+            <div class="flex flex-col gap-1 text-xs" id="file-tree-list">
+              ${renderTree(repoData.files)}
+            </div>
+          </div>
+
+          <!-- Code Viewer -->
+          <div class="md:col-span-8 flex flex-col bg-slate-950 text-emerald-300 p-6 overflow-x-auto">
+            <div class="text-xs text-slate-500 pb-2 border-b border-slate-800 font-mono mb-4" id="active-filename">${firstFile.name}</div>
+            <pre class="font-mono text-xs leading-relaxed text-emerald-300 whitespace-pre-wrap" id="code-viewer-pre">${escapeHtml(selectedFileContent)}</pre>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderTree(files) {
+      return files.map(f => {
+        if (f.type === 'folder') {
+          return `
+            <div class="flex flex-col gap-1 py-1">
+              <span class="text-slate-700 font-bold flex items-center gap-1.5">📁 ${f.name}/</span>
+              <div class="pl-4 border-l border-emerald-200 ml-1">
+                ${renderTree(f.children || [])}
+              </div>
+            </div>
+          `;
+        } else {
+          return `
+            <button onclick="selectFile('${encodeURIComponent(f.name)}', '${encodeURIComponent(f.content || '')}')" class="text-left py-1.5 px-2 rounded-xl hover:bg-emerald-100/60 text-slate-800 flex items-center gap-1.5 transition-colors">
+              📄 ${f.name}
+            </button>
+          `;
+        }
+      }).join('');
+    }
+
+    function selectFile(nameEnc, contentEnc) {
+      const name = decodeURIComponent(nameEnc);
+      const content = decodeURIComponent(contentEnc);
+      document.getElementById('active-filename').innerText = name;
+      document.getElementById('code-viewer-pre').innerText = content;
+    }
+
+    function downloadProjectZip() {
+      if (!currentRepoData) return;
+      const textContent = currentRepoData.files.map(f => `--- ${f.name} ---\n${f.content || ''}`).join('\n\n');
+      const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${currentRepoData.name}-source.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    function escapeHtml(str) {
+      return (str || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function renderRepos(repos) {
+      const grid = document.getElementById('repo-grid');
+      if (!repos || repos.length === 0) {
+        grid.innerHTML = '<div class="border border-emerald-200/80 p-10 text-xs text-slate-600 bg-emerald-50/20 rounded-3xl col-span-full text-center font-medium">There\'s no repos</div>';
+        return;
+      }
+
+      grid.innerHTML = repos.map(repo => `
+        <div onclick="window.location.hash='/${repo.name}'" class="border border-emerald-200/80 hover:border-emerald-400 bg-emerald-50/30 hover:bg-emerald-50/90 p-5 sm:p-6 rounded-3xl flex flex-col justify-between gap-4 cursor-pointer transition-all shadow-xs group">
+          <div class="flex flex-col gap-2">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs sm:text-sm font-bold text-black truncate group-hover:text-emerald-900">/${repo.name}</span>
+              <span class="text-[10px] text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded-full shrink-0">${repo.language || 'Code'}</span>
+            </div>
+            <p class="text-xs text-slate-700 line-clamp-2 leading-relaxed">${repo.description || 'No description.'}</p>
+          </div>
+          <div class="flex items-center justify-between pt-3 border-t border-emerald-200/80 text-[11px] text-slate-600">
+            <span>⭐ ${repo.stargazers_count || 0}</span>
+            <span class="text-emerald-800 font-bold">&gt; Open</span>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function filterRepos() {
+      const query = document.getElementById('search-input').value.toLowerCase();
+      const filtered = allRepos.filter(repo => 
+        repo.name.toLowerCase().includes(query) || 
+        (repo.description && repo.description.toLowerCase().includes(query))
+      );
+      renderRepos(filtered);
+    }
+
+    async function openModal(repoName) {
+      window.location.hash = '/' + repoName;
+    }
+
+    function closeModal() {
+      document.getElementById('repo-modal').classList.add('hidden');
+    }
+
+    async function handleTerminalSubmit(e) {
+      e.preventDefault();
+      const input = document.getElementById('terminal-input');
+      const val = input.value.trim();
+      if (!val) return;
+      input.value = '';
+
+      const output = document.getElementById('terminal-output');
+      output.innerHTML += `<div class="text-black font-bold">&gt; ${val}</div>`;
+
+      try {
+        const res = await fetch('/api/ai/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: val })
+        });
+        const data = await res.json();
+        output.innerHTML += `<div class="text-emerald-900">[AI]: ${data.reply}</div>`;
+      } catch (err) {
+        output.innerHTML += `<div class="text-red-600">[Error]: Failed to respond.</div>`;
+      }
+      output.scrollTop = output.scrollHeight;
+    }
+
+    function scrollToTerminal() {
+      document.getElementById('terminal-section').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>

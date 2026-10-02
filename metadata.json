@@ -1,0 +1,6 @@
+{
+  "name": "dcmim // GitHub Portfolio & Repository Explorer",
+  "description": "Developer portfolio and interactive repository explorer for github.com/dcmim with AI code analysis and insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
