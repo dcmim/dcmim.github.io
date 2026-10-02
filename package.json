@@ -1,17 +1,9 @@
 {
-  "name": "dcmim-github-portfolio-html",
+  "name": "dcmim-github-portfolio-static",
   "private": true,
   "version": "2.0.0",
-  "type": "commonjs",
   "scripts": {
-    "dev": "node server.js",
-    "start": "node server.js",
-    "build": "echo 'Static HTML build complete'",
+    "build": "echo 'Static portfolio ready for GitHub Pages'",
     "lint": "echo 'No lint required'"
-  },
-  "dependencies": {
-    "@google/genai": "^2.4.0",
-    "dotenv": "^17.2.3",
-    "express": "^4.21.2"
   }
 }

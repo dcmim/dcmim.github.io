@@ -30,7 +30,7 @@
           </div>
           <div class="flex items-center gap-3 text-xs font-medium">
             <a href="https://github.com/dcmim" target="_blank" class="px-3.5 py-2 bg-white border border-emerald-200 hover:bg-emerald-50 rounded-xl transition-colors shadow-xs">GitHub</a>
-            <button onclick="scrollToTerminal()" class="px-3.5 py-2 bg-emerald-600 text-white hover:bg-emerald-500 rounded-xl transition-colors shadow-xs">AI Concierge</button>
+            <button onclick="scrollToSearch()" class="px-3.5 py-2 bg-emerald-600 text-white hover:bg-emerald-500 rounded-xl transition-colors shadow-xs">Explore</button>
           </div>
         </div>
       </header>
@@ -53,7 +53,7 @@
         </section>
 
         <!-- Repositories Section -->
-        <section class="flex flex-col gap-5">
+        <section id="repos-section" class="flex flex-col gap-5">
           <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-emerald-200/80 pb-3">
             <h2 class="text-xs sm:text-sm font-bold uppercase tracking-wider text-black">Repositories</h2>
             <div class="flex items-center gap-2 text-xs">
@@ -70,38 +70,16 @@
           <!-- Repo Grid -->
           <div id="repo-grid" class="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div class="border border-emerald-200/80 p-8 text-xs text-slate-500 bg-emerald-50/20 rounded-3xl col-span-full text-center">
-              Loading repositories...
+              Loading repositories from GitHub...
             </div>
           </div>
-        </section>
-
-        <!-- AI Terminal Section -->
-        <section id="terminal-section" class="border border-emerald-200/80 bg-emerald-50/20 p-6 sm:p-8 rounded-3xl flex flex-col gap-4 shadow-sm">
-          <div class="flex items-center justify-between border-b border-emerald-200 pb-3 text-xs font-bold text-black">
-            <span>AI Concierge</span>
-            <span class="text-emerald-700 text-[10px] bg-emerald-100 px-2 py-0.5 rounded-full">Gemini 3.8</span>
-          </div>
-          <div id="terminal-output" class="h-40 overflow-y-auto space-y-2.5 text-xs text-slate-800 pr-2">
-            <div>[System]: Ask any question about dcmim's projects.</div>
-          </div>
-          <form onsubmit="handleTerminalSubmit(event)" class="flex gap-2.5 pt-2 border-t border-emerald-200">
-            <input 
-              type="text" 
-              id="terminal-input" 
-              placeholder="Ask a question..." 
-              class="flex-1 bg-white border border-emerald-200 rounded-2xl text-black text-xs px-4 py-3 focus:outline-none focus:border-emerald-500 shadow-xs"
-            />
-            <button type="submit" class="px-5 py-3 bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 rounded-2xl transition-colors shadow-xs shrink-0">
-              Send
-            </button>
-          </form>
         </section>
 
       </main>
 
       <!-- Footer -->
       <footer class="border-t border-emerald-200/80 bg-emerald-50/40 px-6 py-6 mt-12 text-center text-xs text-slate-600">
-        <p>© dcmim.dev · Soft Minimalist Edition</p>
+        <p>© dcmim.dev · 100% Pure Static GitHub Pages Edition</p>
       </footer>
     </div>
 
@@ -116,15 +94,10 @@
       window.addEventListener('hashchange', handleRouter);
       
       try {
-        // Try backend API first, if hosted on GitHub Pages fallback directly to GitHub API
-        let userRes, reposRes;
-        try {
-          userRes = await fetch('/api/github/user');
-          reposRes = await fetch('/api/github/repos');
-        } catch (e) {
-          userRes = await fetch('https://api.github.com/users/dcmim');
-          reposRes = await fetch('https://api.github.com/users/dcmim/repos?per_page=100&sort=updated');
-        }
+        const [userRes, reposRes] = await Promise.all([
+          fetch('https://api.github.com/users/dcmim'),
+          fetch('https://api.github.com/users/dcmim/repos?per_page=100&sort=updated')
+        ]);
 
         const userData = await userRes.json();
         const reposData = await reposRes.json();
@@ -168,40 +141,42 @@
       `;
 
       try {
-        let data = null;
-        try {
-          const res = await fetch(`/api/github/repo-files/${projectName}`);
-          if (res.ok) {
-            data = await res.json();
-          }
-        } catch (e) {}
-
-        // Fallback for static GitHub Pages hosting where /api endpoints aren't present
-        if (!data) {
-          const repo = allRepos.find(r => r.name.toLowerCase() === projectName.toLowerCase());
-          if (!repo) {
-            throw new Error(`${projectName} doesn't exist in my project`);
-          }
-          const lang = (repo.language || '').toLowerCase();
-          const isWeb = lang.includes('html') || lang.includes('javascript') || lang.includes('css');
-          data = {
-            name: repo.name,
-            fullName: repo.full_name,
-            description: repo.description,
-            htmlUrl: repo.html_url,
-            isWebProject: isWeb,
-            files: isWeb ? [
-              { name: 'index.html', type: 'file', content: `<!DOCTYPE html>\n<html>\n<head>\n  <title>${repo.name}</title>\n  <style>body { font-family: monospace; padding: 40px; background: #fff; color: #000; }</style>\n</head>\n<body>\n  <h1>${repo.name}</h1>\n  <p>${repo.description || 'Web project preview'}</p>\n  <script>console.log("Loaded ${repo.name}");<\/script>\n</body>\n</html>` }
-            ] : [
-              { name: 'README.md', type: 'file', content: `# ${repo.name}\n\n${repo.description}` },
-              { name: 'index.js', type: 'file', content: `// ${repo.name}\nconsole.log("Running ${repo.name}");` }
-            ]
-          };
+        const repo = allRepos.find(r => r.name.toLowerCase() === projectName.toLowerCase());
+        
+        if (!repo) {
+          throw new Error(`${projectName} doesn't exist in my project`);
         }
 
+        const lang = (repo.language || '').toLowerCase();
+        const description = (repo.description || '').toLowerCase();
+        const isWeb = lang.includes('html') || lang.includes('javascript') || lang.includes('css') || description.includes('web') || description.includes('site');
+
+        // Generate files for viewer or web preview
+        let files = [];
+        if (isWeb) {
+          files = [
+            { name: 'index.html', type: 'file', content: `<!DOCTYPE html>\n<html>\n<head>\n  <title>${repo.name}</title>\n  <style>body { font-family: monospace; padding: 40px; background: #fff; color: #000; }</style>\n</head>\n<body>\n  <h1>${repo.name}</h1>\n  <p>${repo.description || 'Web project preview'}</p>\n  <script>console.log("Loaded ${repo.name}");<\/script>\n</body>\n</html>` }
+          ];
+        } else {
+          files = [
+            { name: 'README.md', type: 'file', content: `# ${repo.name}\n\n${repo.description}\n\n## Overview\nRepository by dcmim.` },
+            { name: 'package.json', type: 'file', content: `{\n  "name": "${repo.name}",\n  "version": "1.0.0"\n}` },
+            { name: 'index.js', type: 'file', content: `// ${repo.name}\nconsole.log("${repo.name} initialized.");` }
+          ];
+        }
+
+        const repoData = {
+          name: repo.name,
+          fullName: repo.full_name,
+          description: repo.description,
+          htmlUrl: repo.html_url,
+          isWebProject: isWeb,
+          files
+        };
+
         // RULE 2: If detected HTML, js, CSS (web project) -> show webpage itself NO UI no file list!
-        if (data.isWebProject) {
-          const htmlFile = data.files.find(f => f.name.endsWith('.html')) || data.files[0];
+        if (repoData.isWebProject) {
+          const htmlFile = repoData.files.find(f => f.name.endsWith('.html')) || repoData.files[0];
           const content = htmlFile ? htmlFile.content : '<h1>No HTML content found</h1>';
           
           projectView.innerHTML = `<iframe id="web-preview-frame" class="w-full flex-1 border-none min-h-screen"></iframe>`;
@@ -210,13 +185,13 @@
         }
 
         // RULE 1: If non-HTML project -> shows File List where you can see code, download button, folders, and files
-        renderFileListView(data);
+        renderFileListView(repoData);
 
       } catch (err) {
         projectView.innerHTML = `
-          <div class="flex-1 flex flex-col items-center justify-center p-8 text-center gap-4">
-            <div class="text-lg font-bold text-black">${projectName} doesn't exist in my project</div>
-            <a href="#" onclick="window.location.hash=''; return false;" class="px-5 py-2.5 bg-emerald-600 text-white rounded-2xl text-xs font-bold hover:bg-emerald-500 transition-colors">← Back to Portfolio</a>
+          <div class="flex-1 flex flex-col items-center justify-center p-8 text-center gap-6">
+            <div class="text-xl font-bold text-black">${projectName} doesn't exist in my project</div>
+            <a href="#" onclick="window.location.hash=''; return false;" class="px-5 py-2.5 bg-emerald-600 text-white rounded-2xl text-xs font-bold hover:bg-emerald-500 transition-colors shadow-xs">← Back to Portfolio</a>
           </div>
         `;
       }
@@ -345,38 +320,8 @@
       renderRepos(filtered);
     }
 
-    async function handleTerminalSubmit(e) {
-      e.preventDefault();
-      const input = document.getElementById('terminal-input');
-      const val = input.value.trim();
-      if (!val) return;
-      input.value = '';
-
-      const output = document.getElementById('terminal-output');
-      output.innerHTML += `<div class="text-black font-bold">&gt; ${val}</div>`;
-
-      try {
-        let reply = '';
-        try {
-          const res = await fetch('/api/ai/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ message: val })
-          });
-          const data = await res.json();
-          reply = data.reply;
-        } catch (e) {
-          reply = "I am dcmim's portfolio assistant. Explore repositories above or type /project-name in the URL!";
-        }
-        output.innerHTML += `<div class="text-emerald-900">[AI]: ${reply}</div>`;
-      } catch (err) {
-        output.innerHTML += `<div class="text-red-600">[Error]: Failed to respond.</div>`;
-      }
-      output.scrollTop = output.scrollHeight;
-    }
-
-    function scrollToTerminal() {
-      document.getElementById('terminal-section').scrollIntoView({ behavior: 'smooth' });
+    function scrollToSearch() {
+      document.getElementById('repos-section').scrollIntoView({ behavior: 'smooth' });
     }
 
     window.onload = init;
