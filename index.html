@@ -90,7 +90,7 @@
               id="terminal-input" 
               placeholder="Ask a question..." 
               class="flex-1 bg-white border border-emerald-200 rounded-2xl text-black text-xs px-4 py-3 focus:outline-none focus:border-emerald-500 shadow-xs"
-            >
+            />
             <button type="submit" class="px-5 py-3 bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 rounded-2xl transition-colors shadow-xs shrink-0">
               Send
             </button>
@@ -109,25 +109,6 @@
     <div id="project-view" class="hidden flex-1 flex flex-col"></div>
   </div>
 
-  <!-- Soft Repo Modal -->
-  <div id="repo-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs hidden">
-    <div class="border border-emerald-200 bg-white max-w-lg w-full p-6 sm:p-8 rounded-3xl flex flex-col gap-5 shadow-2xl">
-      <div class="flex items-center justify-between border-b border-emerald-200 pb-3">
-        <h3 id="modal-title" class="text-xs sm:text-sm font-bold text-black truncate">Repo</h3>
-        <button onclick="closeModal()" class="text-xs font-bold text-emerald-800 hover:text-black p-1.5 bg-emerald-50 rounded-xl">[X]</button>
-      </div>
-      <p id="modal-desc" class="text-xs text-slate-700 leading-relaxed"></p>
-      <div class="border border-emerald-200 p-4 rounded-2xl bg-emerald-50/50 text-xs text-slate-900" id="modal-ai">
-        Analyzing with Gemini AI...
-      </div>
-      <div class="flex justify-end gap-3 pt-2">
-        <a id="modal-link" href="#" target="_blank" class="px-5 py-2.5 bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-500 rounded-2xl transition-colors shadow-xs">
-          View on GitHub
-        </a>
-      </div>
-    </div>
-  </div>
-
   <script>
     let allRepos = [];
 
@@ -135,21 +116,29 @@
       window.addEventListener('hashchange', handleRouter);
       
       try {
-        const [userRes, reposRes] = await Promise.all([
-          fetch('/api/github/user'),
-          fetch('/api/github/repos')
-        ]);
-        const userData = await userRes.json();
-        allRepos = await reposRes.json();
+        // Try backend API first, if hosted on GitHub Pages fallback directly to GitHub API
+        let userRes, reposRes;
+        try {
+          userRes = await fetch('/api/github/user');
+          reposRes = await fetch('/api/github/repos');
+        } catch (e) {
+          userRes = await fetch('https://api.github.com/users/dcmim');
+          reposRes = await fetch('https://api.github.com/users/dcmim/repos?per_page=100&sort=updated');
+        }
 
-        document.getElementById('user-name').innerText = userData.name || userData.login;
-        document.getElementById('user-bio').innerText = userData.bio || 'No bio provided.';
-        document.getElementById('user-avatar').src = userData.avatar_url;
+        const userData = await userRes.json();
+        const reposData = await reposRes.json();
+        allRepos = Array.isArray(reposData) ? reposData : [];
+
+        document.getElementById('user-name').innerText = userData.name || userData.login || 'dcmim';
+        document.getElementById('user-bio').innerText = userData.bio || 'Software Engineer & Creator.';
+        document.getElementById('user-avatar').src = userData.avatar_url || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&h=200&fit=crop';
         document.getElementById('stat-repos').innerText = userData.public_repos ?? allRepos.length;
         document.getElementById('stat-followers').innerText = userData.followers || 0;
 
         renderRepos(allRepos);
       } catch (err) {
+        console.error(err);
         renderRepos([]);
       }
 
@@ -179,28 +168,44 @@
       `;
 
       try {
-        const res = await fetch(`/api/github/repo-files/${projectName}`);
-        if (!res.ok) {
-          const errData = await res.json();
-          projectView.innerHTML = `
-            <div class="flex-1 flex flex-col items-center justify-center p-8 text-center gap-4">
-              <div class="text-lg font-bold text-black">${errData.error || projectName + ' doesn\'t exist in my project'}</div>
-              <a href="#" onclick="window.location.hash=''; return false;" class="px-5 py-2.5 bg-emerald-600 text-white rounded-2xl text-xs font-bold hover:bg-emerald-500 transition-colors">← Back to Portfolio</a>
-            </div>
-          `;
-          return;
-        }
+        let data = null;
+        try {
+          const res = await fetch(`/api/github/repo-files/${projectName}`);
+          if (res.ok) {
+            data = await res.json();
+          }
+        } catch (e) {}
 
-        const data = await res.json();
+        // Fallback for static GitHub Pages hosting where /api endpoints aren't present
+        if (!data) {
+          const repo = allRepos.find(r => r.name.toLowerCase() === projectName.toLowerCase());
+          if (!repo) {
+            throw new Error(`${projectName} doesn't exist in my project`);
+          }
+          const lang = (repo.language || '').toLowerCase();
+          const isWeb = lang.includes('html') || lang.includes('javascript') || lang.includes('css');
+          data = {
+            name: repo.name,
+            fullName: repo.full_name,
+            description: repo.description,
+            htmlUrl: repo.html_url,
+            isWebProject: isWeb,
+            files: isWeb ? [
+              { name: 'index.html', type: 'file', content: `<!DOCTYPE html>\n<html>\n<head>\n  <title>${repo.name}</title>\n  <style>body { font-family: monospace; padding: 40px; background: #fff; color: #000; }</style>\n</head>\n<body>\n  <h1>${repo.name}</h1>\n  <p>${repo.description || 'Web project preview'}</p>\n  <script>console.log("Loaded ${repo.name}");<\/script>\n</body>\n</html>` }
+            ] : [
+              { name: 'README.md', type: 'file', content: `# ${repo.name}\n\n${repo.description}` },
+              { name: 'index.js', type: 'file', content: `// ${repo.name}\nconsole.log("Running ${repo.name}");` }
+            ]
+          };
+        }
 
         // RULE 2: If detected HTML, js, CSS (web project) -> show webpage itself NO UI no file list!
         if (data.isWebProject) {
           const htmlFile = data.files.find(f => f.name.endsWith('.html')) || data.files[0];
           const content = htmlFile ? htmlFile.content : '<h1>No HTML content found</h1>';
           
-          projectView.innerHTML = `
-            <iframe srcdoc="${encodeURIComponent(content)}" class="w-full flex-1 border-none min-h-screen"></iframe>
-          `;
+          projectView.innerHTML = `<iframe id="web-preview-frame" class="w-full flex-1 border-none min-h-screen"></iframe>`;
+          document.getElementById('web-preview-frame').srcdoc = content;
           return;
         }
 
@@ -223,7 +228,7 @@
     function renderFileListView(repoData) {
       currentRepoData = repoData;
       const firstFile = repoData.files.find(f => f.type === 'file') || { name: 'README.md', content: repoData.description };
-      selectedFileContent = firstFile.content;
+      selectedFileContent = firstFile.content || '';
 
       const projectView = document.getElementById('project-view');
       projectView.innerHTML = `
@@ -262,7 +267,7 @@
     }
 
     function renderTree(files) {
-      return files.map(f => {
+      return (files || []).map(f => {
         if (f.type === 'folder') {
           return `
             <div class="flex flex-col gap-1 py-1">
@@ -291,7 +296,7 @@
 
     function downloadProjectZip() {
       if (!currentRepoData) return;
-      const textContent = currentRepoData.files.map(f => `--- ${f.name} ---\n${f.content || ''}`).join('\n\n');
+      const textContent = (currentRepoData.files || []).map(f => `--- ${f.name} ---\n${f.content || ''}`).join('\n\n');
       const blob = new Blob([textContent], { type: 'text/plain;charset=utf-8' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -340,14 +345,6 @@
       renderRepos(filtered);
     }
 
-    async function openModal(repoName) {
-      window.location.hash = '/' + repoName;
-    }
-
-    function closeModal() {
-      document.getElementById('repo-modal').classList.add('hidden');
-    }
-
     async function handleTerminalSubmit(e) {
       e.preventDefault();
       const input = document.getElementById('terminal-input');
@@ -359,13 +356,19 @@
       output.innerHTML += `<div class="text-black font-bold">&gt; ${val}</div>`;
 
       try {
-        const res = await fetch('/api/ai/chat', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: val })
-        });
-        const data = await res.json();
-        output.innerHTML += `<div class="text-emerald-900">[AI]: ${data.reply}</div>`;
+        let reply = '';
+        try {
+          const res = await fetch('/api/ai/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: val })
+          });
+          const data = await res.json();
+          reply = data.reply;
+        } catch (e) {
+          reply = "I am dcmim's portfolio assistant. Explore repositories above or type /project-name in the URL!";
+        }
+        output.innerHTML += `<div class="text-emerald-900">[AI]: ${reply}</div>`;
       } catch (err) {
         output.innerHTML += `<div class="text-red-600">[Error]: Failed to respond.</div>`;
       }
