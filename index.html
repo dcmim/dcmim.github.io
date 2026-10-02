@@ -40,7 +40,7 @@
     </div>
 
     <div class="flex flex-col items-center gap-6">
-      <div id="loading-project-text" class="text-xs font-bold uppercase tracking-widest text-slate-700">Fetching repo and assets from GitHub...</div>
+      <div id="loading-project-text" class="text-xs font-bold uppercase tracking-widest text-slate-700">Loading repo from GitHub...</div>
       <!-- Three Gray Y-Stretching Dots -->
       <div class="flex items-center gap-3 h-10">
         <div class="w-3.5 h-7 bg-gray-400 rounded-full dot-1"></div>
@@ -123,6 +123,10 @@
   <script>
     let allRepos = [];
 
+    function escapeRegExp(string) {
+      return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
     async function init() {
       window.addEventListener('popstate', handleRouter);
       
@@ -169,7 +173,7 @@
       const projectName = segments[0];
       
       const startTime = Date.now();
-      document.getElementById('loading-project-text').innerText = `Fetching repo /${projectName} from GitHub...`;
+      document.getElementById('loading-project-text').innerText = `Loading repo /${projectName} from GitHub...`;
       loadingScreen.classList.remove('hidden');
       loadingScreen.style.opacity = '1';
 
@@ -209,45 +213,95 @@
           const htmlRes = await fetch(htmlFile.download_url);
           let htmlContent = await htmlRes.text();
           
-          const rawBaseUrl = `https://raw.githubusercontent.com/dcmim/${projectName}/main/`;
+          const cdnBase = `https://cdn.jsdelivr.net/gh/dcmim/${projectName}@main/`;
 
-          // Inject Tailwind CSS if not present
+          // Inject base tag for resolving relative assets (like images, textures, audio) to jsDelivr CDN
+          const baseTag = `<base href="${cdnBase}">`;
+          if (htmlContent.includes('<head>')) {
+            htmlContent = htmlContent.replace('<head>', `<head>\n${baseTag}`);
+          } else if (htmlContent.includes('<html')) {
+            htmlContent = htmlContent.replace(/<html[^>]*>/, (match) => `${match}\n<head>${baseTag}</head>`);
+          } else {
+            htmlContent = `${baseTag}\n${htmlContent}`;
+          }
+
+          // Fetch and inline all local JS and CSS files directly so strict MIME-types and CORS never block execution
+          for (const item of repoContents) {
+            if (item.type === 'file') {
+              const filename = item.name;
+              const lower = filename.toLowerCase();
+              
+              if (lower.endsWith('.js') && item.download_url) {
+                try {
+                  const jsRes = await fetch(item.download_url);
+                  const jsCode = await jsRes.text();
+                  const scriptRegex = new RegExp(`<script[^>]*src=["'](\\./)?${escapeRegExp(filename)}["'][^>]*>\\s*<\\/script>`, 'gi');
+                  if (scriptRegex.test(htmlContent)) {
+                    htmlContent = htmlContent.replace(scriptRegex, `<script>\n/* inlined ${filename} */\n${jsCode}\n<\/script>`);
+                  } else if (lower === 'three.js' || lower === 'three.min.js') {
+                    // Inject local three.js if present in repo
+                    htmlContent = htmlContent.replace('</head>', `<script>\n/* inlined ${filename} */\n${jsCode}\n<\/script>\n</head>`);
+                  }
+                } catch (e) {}
+              }
+
+              if (lower.endsWith('.css') && item.download_url) {
+                try {
+                  const cssRes = await fetch(item.download_url);
+                  const cssCode = await cssRes.text();
+                  const linkRegex = new RegExp(`<link[^>]*href=["'](\\./)?${escapeRegExp(filename)}["'][^>]*>`, 'gi');
+                  if (linkRegex.test(htmlContent)) {
+                    htmlContent = htmlContent.replace(linkRegex, `<style>\n/* inlined ${filename} */\n${cssCode}\n</style>`);
+                  }
+                } catch (e) {}
+              }
+            }
+          }
+
+          // Inject Tailwind CSS if needed
           if (!htmlContent.includes('tailwindcss') && !htmlContent.includes('cdn.tailwindcss.com')) {
             const tailwindScript = '<script src="https://cdn.tailwindcss.com"><\/script>';
             if (htmlContent.includes('</head>')) {
               htmlContent = htmlContent.replace('</head>', `${tailwindScript}\n</head>`);
-            } else if (htmlContent.includes('<html')) {
-              htmlContent = htmlContent.replace(/<html[^>]*>/, (match) => `${match}\n<head>${tailwindScript}</head>`);
             } else {
               htmlContent = `${tailwindScript}\n${htmlContent}`;
             }
           }
 
-          // Inject Three.js CDN if Three.js / THREE / physics is referenced or needed
-          if (!htmlContent.includes('three.min.js') && !htmlContent.includes('three.js')) {
-            const threeScript = '<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"><\/script>';
+          // Inject Three.js CDN if referenced or needed for 3D/physics
+          if ((htmlContent.includes('three') || htmlContent.includes('THREE')) && !htmlContent.includes('three.min.js') && !htmlContent.includes('three.js')) {
+            const threeScript = '<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"><\/script>';
             if (htmlContent.includes('</head>')) {
               htmlContent = htmlContent.replace('</head>', `${threeScript}\n</head>`);
             }
           }
 
-          // Resolve relative asset paths (src="...", href="...") to GitHub raw URLs so images, scripts, and three.js files load successfully
+          // Rewrite remaining relative assets to jsDelivr CDN, preserving YouTube, protocol-relative (//), http, https, data, etc.
           htmlContent = htmlContent.replace(/(src|href)=["']([^"']+)["']/g, (match, attr, path) => {
-            if (path.startsWith('http://') || path.startsWith('https://') || path.startsWith('data:') || path.startsWith('#')) {
+            if (
+              path.startsWith('//') ||
+              path.startsWith('http://') ||
+              path.startsWith('https://') ||
+              path.startsWith('data:') ||
+              path.startsWith('blob:') ||
+              path.startsWith('#') ||
+              path.startsWith('javascript:') ||
+              path.startsWith('mailto:')
+            ) {
               return match;
             }
             const cleanPath = path.replace(/^\.\//, '');
-            return `${attr}="${rawBaseUrl}${cleanPath}"`;
+            return `${attr}="${cdnBase}${cleanPath}"`;
           });
 
-          // Use fully interactive sandbox without origin restrictions to allow buttons, pointer lock, 3D physics, and scripts
+          // Render clean 100% full-viewport iframe with full YouTube, audio/video, and interactive permissions, and NO portfolio button
           projectView.innerHTML = `
-            <div class="relative w-full h-full flex-1 flex flex-col pointer-events-auto">
+            <div class="fixed inset-0 w-screen h-screen z-30 bg-white">
               <iframe 
                 id="web-preview-frame" 
-                sandbox="allow-scripts allow-modals allow-forms allow-popups allow-pointer-lock allow-downloads" 
-                class="w-full h-full flex-1 border-none bg-white pointer-events-auto" 
-                style="min-height: calc(100vh - 60px);">
+                class="w-full h-full border-none bg-white block"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                allowfullscreen>
               </iframe>
             </div>
           `;
