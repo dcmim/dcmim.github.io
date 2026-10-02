@@ -23,7 +23,7 @@
     }
     @keyframes stretch-y {
       0%, 100% { transform: scaleY(1) scaleX(1); }
-      50% { transform: scaleY(1.8) scaleX(0.8); }
+      50% { transform: scaleY(2.2) scaleX(0.6); }
     }
     .dot-1 { animation: stretch-y 0.8s infinite ease-in-out 0s; transform-origin: bottom; }
     .dot-2 { animation: stretch-y 0.8s infinite ease-in-out 0.2s; transform-origin: bottom; }
@@ -32,20 +32,20 @@
 </head>
 <body class="bg-white text-black min-h-screen flex flex-col selection:bg-emerald-200 selection:text-black">
 
-  <!-- Google-style Top Blue Progress Bar Loading Screen -->
-  <div id="loading-screen" class="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center transition-opacity duration-500">
+  <!-- Project Loading Screen Overlay (Appears on /repo /project route) -->
+  <div id="project-loading-screen" class="fixed inset-0 z-50 bg-white flex flex-col items-center justify-center transition-opacity duration-500 hidden">
     <!-- Top Google Progress Bar -->
     <div class="absolute top-0 left-0 right-0 h-1 bg-blue-100 overflow-hidden">
       <div class="h-full bg-blue-600 animate-google-bar"></div>
     </div>
 
     <div class="flex flex-col items-center gap-6">
-      <div class="text-xs font-bold uppercase tracking-widest text-slate-700">Loading dcmim.dev</div>
+      <div id="loading-project-text" class="text-xs font-bold uppercase tracking-widest text-slate-700">Loading project...</div>
       <!-- Three Gray Y-Stretching Dots -->
-      <div class="flex items-center gap-3 h-8">
-        <div class="w-3.5 h-6 bg-gray-400 rounded-full dot-1"></div>
-        <div class="w-3.5 h-6 bg-gray-400 rounded-full dot-2"></div>
-        <div class="w-3.5 h-6 bg-gray-400 rounded-full dot-3"></div>
+      <div class="flex items-center gap-3 h-10">
+        <div class="w-3.5 h-7 bg-gray-400 rounded-full dot-1"></div>
+        <div class="w-3.5 h-7 bg-gray-400 rounded-full dot-2"></div>
+        <div class="w-3.5 h-7 bg-gray-400 rounded-full dot-3"></div>
       </div>
     </div>
   </div>
@@ -124,7 +124,6 @@
     let allRepos = [];
 
     async function init() {
-      const startTime = Date.now();
       window.addEventListener('hashchange', handleRouter);
       
       try {
@@ -149,19 +148,6 @@
         renderRepos([]);
       }
 
-      // Ensure minimum 3 seconds loading time as requested
-      const elapsed = Date.now() - startTime;
-      const minLoadingTime = 3000;
-      const remainingTime = Math.max(0, minLoadingTime - elapsed);
-
-      setTimeout(() => {
-        const loadingScreen = document.getElementById('loading-screen');
-        if (loadingScreen) {
-          loadingScreen.style.opacity = '0';
-          setTimeout(() => loadingScreen.remove(), 500);
-        }
-      }, remainingTime);
-
       handleRouter();
     }
 
@@ -169,8 +155,10 @@
       const hash = window.location.hash.slice(1); // e.g. /project-name or project-name
       const mainView = document.getElementById('main-view');
       const projectView = document.getElementById('project-view');
+      const loadingScreen = document.getElementById('project-loading-screen');
 
       if (!hash) {
+        loadingScreen.classList.add('hidden');
         mainView.classList.remove('hidden');
         projectView.classList.add('hidden');
         projectView.innerHTML = '';
@@ -179,17 +167,28 @@
 
       const projectName = hash.startsWith('/') ? hash.slice(1) : hash;
       
+      // Show loading screen on /repo with 3 seconds minimum loading time
+      const startTime = Date.now();
+      document.getElementById('loading-project-text').innerText = `Loading project /${projectName}...`;
+      loadingScreen.classList.remove('hidden');
+      loadingScreen.style.opacity = '1';
+
       mainView.classList.add('hidden');
       projectView.classList.remove('hidden');
-      projectView.innerHTML = `
-        <div class="flex-1 flex items-center justify-center p-8 bg-emerald-50/20 text-xs text-slate-600">
-          Loading project /${projectName}...
-        </div>
-      `;
 
       try {
         const repo = allRepos.find(r => r.name.toLowerCase() === projectName.toLowerCase());
         
+        // Ensure minimum 3 seconds loading time as requested
+        const elapsed = Date.now() - startTime;
+        const minLoadingTime = 3000;
+        const remainingTime = Math.max(0, minLoadingTime - elapsed);
+
+        await new Promise(resolve => setTimeout(resolve, remainingTime));
+
+        loadingScreen.style.opacity = '0';
+        setTimeout(() => loadingScreen.classList.add('hidden'), 500);
+
         if (!repo) {
           throw new Error(`${projectName} doesn't exist in my project`);
         }
@@ -234,6 +233,9 @@
         renderFileListView(repoData);
 
       } catch (err) {
+        loadingScreen.style.opacity = '0';
+        setTimeout(() => loadingScreen.classList.add('hidden'), 500);
+
         projectView.innerHTML = `
           <div class="flex-1 flex flex-col items-center justify-center p-8 text-center gap-6">
             <div class="text-xl font-bold text-black">${projectName} doesn't exist in my project</div>
